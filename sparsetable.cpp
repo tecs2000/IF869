@@ -12,8 +12,8 @@ int COL, L, T_Op, Q, U;
 int current;
 
 int NEXT_RAND(int current);
-int QRY(int L, int R, int* sparse_table[]);
-void UPD(int index, int* sparse_table[]);
+int QRY(int L, int R, int *sparse_table[]);
+void UPD(int index, int *sparse_table[]);
 int LOG2(int number);
 
 int main()
@@ -26,9 +26,9 @@ int main()
 
         L = LOG2(COL) + 1; // + 1 to include the line 0
 
-        int* sparse_table[L];
-        for (int i = 0; i < COL; i ++)
-            sparse_table[i] = (int*)malloc(COL * sizeof(int));
+        int *sparse_table[L];
+        for (int i = 0; i < L; i++)
+            sparse_table[i] = new int[COL];
 
         current = Seed;
 
@@ -38,7 +38,7 @@ int main()
                 sparse_table[0][i] = current;
             else
                 sparse_table[0][i] = NEXT_RAND(current);
-        
+
         // PRE-PROCESSAMENTO 2
         for (int i = 1; i < L; i++)
             for (int j = 0; j + (1 << i) - 1 < COL; j++)
@@ -51,7 +51,7 @@ int main()
                 else
                     sparse_table[i][j] = sparse_table[i - 1][j] +
                                          sparse_table[i - 1][j + (1 << (i - 1))];
-            
+
         // SIMULADOR DE OPERACOES
         cout << "caso " << case_number << endl;
 
@@ -80,7 +80,9 @@ int main()
         }
 
         case_number++;
-    }
+        for (int i = 0; i < L; i++)
+            delete[] sparse_table[i];
+        }
 
     return 0;
 }
@@ -90,11 +92,12 @@ int NEXT_RAND(int current) { return ((A * current) + C) % (4 * COL); }
 int LOG2(int number)
 {
     int k = 0;
-    while ((1 << (k + 1)) <= number) k++;
+    while ((1 << (k + 1)) <= number)
+        k++;
     return k;
 }
 
-int QRY(int L, int R, int* sparse_table[])
+int QRY(int L, int R, int *sparse_table[])
 {
     int max_fit = LOG2(R - L);
     int result;
@@ -112,10 +115,10 @@ int QRY(int L, int R, int* sparse_table[])
         int left = R - L;
 
         while (left > 0)
-        {   
+        {
             max_fit = LOG2(left);
             result += sparse_table[max_fit][L];
-            
+
             L += (1 << max_fit);
             left = R - L;
         }
@@ -123,7 +126,7 @@ int QRY(int L, int R, int* sparse_table[])
     return result;
 }
 
-void UPD(int index, int* sparse_table[])
+void UPD(int index, int *sparse_table[])
 {
     int valor = NEXT_RAND(current) % (4 * COL);
 

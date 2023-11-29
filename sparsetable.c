@@ -10,15 +10,15 @@
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
 ui32 current;
-int *LOG;
+int  *LOG;
 
 ui32 Seed;
 char FUN[4];
-int COL, L, T_Op, Q, U, M;
+int  COL, L, T_Op, Q, U, M;
 
 ui32 NEXT_RAND();
 void PRECOMPUTE_LOGS();
-int QRY(int L, int R, int *sparse_table[]);
+int  QRY(int L, int R, int *sparse_table[]);
 void UPD(int index, int *sparse_table[]);
 
 int main()

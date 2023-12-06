@@ -97,24 +97,17 @@ int insert(Van_Emde_Boas *veb, int key, int nivel = 1)
     }
     
     if (key < veb->minimum)
-    {
-
-        // troca minimo global com a chave atual e
-        // insere o antigo minimo global recursivamente
         swap(veb->minimum, key);
-    }
 
     veb->maximum = max(veb->maximum, key);
 
     int high = veb->high(key);
     int low = veb->low(key);
     // se cluster vazio, insere no cluster e no summary
-    if (minimum(veb->clusters[high]) == veb->universe_size)
-        insert(veb->summary, high, ++nivel);
+    if (veb->clusters[high]->minimum == veb->universe_size)
+        insert(veb->summary, high);
 
-    insert(veb->clusters[high], low, ++nivel);
-
-    return nivel;
+    return insert(veb->clusters[high], low, ++nivel);
 }
 
 bool contains(Van_Emde_Boas *veb, int key)
@@ -356,47 +349,53 @@ int main()
             insert(veb, (NEXT_RAND() % u));
     }
 
+    int should_print = 0;
+
     for (int k = 0; k < n; k++)
     {
         int x = NEXT_RAND() % (i + f + d);
+        should_print = (k % p) == 0 ? 1 : 0;
 
+        // ins
         if (x < i)
         {
-            // ins
             ui32 item = (NEXT_RAND() % u);
+            int nivel = 0;
+
             if (!contains(veb, item))
-            {
-                int nivel = insert(veb, item);
+                nivel = insert(veb, item);
+
+            if(should_print)
                 printf("I %d\n", nivel);
-            }
-            else
-                printf("I 0\n");
         }
+        // suc
         else if (x < (i + f))
         {
-            // suc
-            int suc = successor(veb, NEXT_RAND() % u);
-            if (suc == -1)
-                printf("S %d\n", u);
-            else
-                printf("S %d\n", suc);
+            if(should_print){
+                int suc = successor(veb, NEXT_RAND() % u);
+
+                if (suc == -1)
+                    printf("S %d\n", u);
+
+                else
+                    printf("S %d\n", suc);
+            }
         }
+        // del
         else
         {
-            // del
             int y = NEXT_RAND() % u;
             x = successor(veb, y);
 
             if (x == -1)
                 x = y;
-
-            if (!contains(veb, x))
-                printf("D 0\n");
-            else
-            {
-                int nivel = remove(veb, x);
+            
+            int nivel = 0;
+            if (contains(veb, x))
+                nivel = remove(veb, x);
+            
+            if(should_print)
                 printf("D %d\n", nivel);
-            }
         }
     }
     return 0;

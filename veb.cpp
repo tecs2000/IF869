@@ -19,23 +19,18 @@ public:
     Van_Emde_Boas* summary;
     vector<Van_Emde_Boas*> clusters;
  
-    // Function to return cluster numbers
-    // in which key is present
     int high(int x)
     {
         int div = ceil(sqrt(universe_size));
         return x / div;
     }
  
-    // Function to return position of x in cluster
     int low(int x)
     {
         int mod = ceil(sqrt(universe_size));
         return x % mod;
     }
  
-    // Function to return the index from
-    // cluster number and position
     int generate_index(int x, int y)
     {
         int ru = ceil(sqrt(universe_size));
@@ -55,239 +50,154 @@ public:
             clusters = vector<Van_Emde_Boas*>(0, nullptr);
         }
         else {
-            int no_clusters = ceil(sqrt(size));
+            int universe_root = ceil(sqrt(size));
  
-            // Assigning VEB(sqrt(u)) to summary
-            summary = new Van_Emde_Boas(no_clusters);
+            summary = new Van_Emde_Boas(universe_root);
+
+            clusters = vector<Van_Emde_Boas*>(universe_root, nullptr);
  
-            // Creating array of VEB Tree pointers of size
-            // sqrt(u)
-            clusters = vector<Van_Emde_Boas*>(no_clusters,
-                                              nullptr);
- 
-            // Assigning VEB(sqrt(u)) to all its clusters
-            for (int i = 0; i < no_clusters; i++) {
-                clusters[i]
-                    = new Van_Emde_Boas(ceil(sqrt(size)));
-            }
+            // cada cluster recebe uma VEB(universe_root)
+            for (int i = 0; i < universe_root; i++) 
+                clusters[i] = new Van_Emde_Boas(universe_root);
         }
     }
 };
  
-// Function to return the minimum value
-// from the tree if it exists
-int minimum(Van_Emde_Boas* helper)
+int minimum(Van_Emde_Boas* veb)
 {
-    return (helper->minimum == -1 ? -1 : helper->minimum);
+    return (veb->minimum == -1 ? -1 : veb->minimum);
 }
  
-// Function to return the maximum value
-// from the tree if it exists
-int maximum(Van_Emde_Boas* helper)
+int maximum(Van_Emde_Boas* veb)
 {
-    return (helper->maximum == -1 ? -1 : helper->maximum);
+    return (veb->maximum == -1 ? -1 : veb->maximum);
 }
  
-// Function to insert a key in the tree
-// TODO RETURN LEVEL
-void insert(Van_Emde_Boas* helper, int key)
+int insert(Van_Emde_Boas* veb, int key, int nivel = 1)
 {
-    // If no key is present in the tree
-    // then set both minimum and maximum
-    // to the key (Read the previous article
-    // for more understanding about it)
-    if (helper->minimum == -1) {
-        helper->minimum = key;
-        helper->maximum = key;
+    // se veb vazia, min = max = key
+    if (veb->minimum == -1) {
+        veb->minimum = key;
+        veb->maximum = key;
     }
     else {
-        if (key < helper->minimum) {
+        if (key < veb->minimum) {
  
-            // If the key is less than the current minimum
-            // then swap it with the current minimum
-            // because this minimum is actually
-            // minimum of one of the internal cluster
-            // so as we go deeper into the Van Emde Boas
-            // we need to take that minimum to its real
-            // position This concept is similar to "Lazy
-            // Propagation"
-            swap(helper->minimum, key);
+            // troca minimo global com a chave atual e 
+            // insere o antigo minimo global recursivamente
+            swap(veb->minimum, key);
         }
  
-        // Not base case then...
-        if (helper->universe_size > 2) {
+        if (veb->universe_size > 2) {
+            // se cluster vazio, insere no cluster e no summary
+            if (minimum(veb->clusters[veb->high(key)]) == -1) {
+                insert(veb->summary, veb->high(key), ++nivel);
  
-            // If no key is present in the cluster then
-            // insert key into both cluster and summary
-            if (minimum(
-                    helper->clusters[helper->high(key)])
-                == -1) {
-                insert(helper->summary, helper->high(key));
- 
-                // Sets the minimum and maximum of cluster
-                // to the key as no other keys are present
-                // we will stop at this level we are not
-                // going deeper into the structure like Lazy
-                // Propagation
-                helper->clusters[helper->high(key)]->minimum
-                    = helper->low(key);
-                helper->clusters[helper->high(key)]->maximum
-                    = helper->low(key);
+                // como o cluster esta vazio, seta min = max = key
+                veb->clusters[veb->high(key)]->minimum = veb->low(key);
+                veb->clusters[veb->high(key)]->maximum = veb->low(key);
             }
             else {
-                // If there are other elements in the tree
-                // then recursively go deeper into the
-                // structure to set attributes accordingly
-                insert(helper->clusters[helper->high(key)],
-                       helper->low(key));
+                // Se há mais elementos na arvore, continua..
+                insert(veb->clusters[veb->high(key)], veb->low(key), ++nivel);
             }
         }
- 
-        // Sets the key as maximum it is greater than
-        // current maximum
-        if (key > helper->maximum) {
-            helper->maximum = key;
-        }
+
+        if (key > veb->maximum) veb->maximum = key;
     }
+    return nivel;
 }
- 
-// Function that returns true if the
-// key is present in the tree
-bool contains(Van_Emde_Boas* helper, int key)
+
+bool contains(Van_Emde_Boas* veb, int key)
 {
  
-    // If universe_size is less than the key
-    // then we can not search the key so returns
-    // false
-    if (helper->universe_size < key) {
+    // A key está fora do universo
+    if (veb->universe_size < key)
         return false;
-    }
  
-    // If at any point of our traversal
-    // of the tree if the key is the minimum
-    // or the maximum of the subtree, then
-    // the key is present so returns true
-    if (helper->minimum == key || helper->maximum == key) {
+    if (veb->minimum == key || veb->maximum == key) 
         return true;
-    }
     else {
  
-        // If after attending above condition,
-        // if the size of the tree is 2 then
-        // the present key must be
-        // maximum or minimum of the tree if it
-        // is not then it returns false because key
-        // can not be present in the sub tree
-        if (helper->universe_size == 2) {
+        // se o tamanho do universo é 2 e a chave
+        // não é nem o max, nem o min, significa que ela
+        // não está presente na estrutura
+        if (veb->universe_size == 2) 
             return false;
-        }
         else {
- 
-            // Recursive call over the cluster
-            // in which the key can be present
-            // and also pass the new position of the key
-            // i.e., low(key)
             return contains(
-                helper->clusters[helper->high(key)],
-                helper->low(key));
+                veb->clusters[veb->high(key)],
+                veb->low(key));
         }
     }
 }
  
-// Function to find the successor of the given key
-int successor(Van_Emde_Boas* helper, int key)
+int successor(Van_Emde_Boas* veb, int key)
 {
  
-    // Base case: If key is 0 and its successor
-    // is present then return 1 else return null
-    if (helper->universe_size == 2) {
- 
-        if (key == 0 && helper->maximum == 1) {
+    // caso base
+    if (veb->universe_size == 2) {
+        if (key == 0 && veb->maximum == 1) 
             return 1;
-        }
-        else {
+        else 
             return -1;
-        }
     }
  
-    // If key is less than minimum then return minimum
-    // because it will be successor of the key
-    else if (helper->minimum != -1
-             && key < helper->minimum) {
- 
-        return helper->minimum;
-    }
+    // se o min presente é maior que a chave,
+    // então ele é o seu sucessor
+    else if (veb->minimum != -1 && key < veb->minimum) 
+        return veb->minimum;
     else {
- 
-        // Find successor inside the cluster of the key
-        // First find the maximum in the cluster
-        int max_incluster = maximum(
-            helper->clusters[helper->high(key)]);
+        int max_incluster = maximum(veb->clusters[veb->high(key)]);
  
         int offset{ 0 }, succ_cluster{ 0 };
  
-        // If there is any key( maximum!=-1 ) present in the
-        // cluster then find the successor inside of the
-        // cluster
+        // se o cluster não estiver vazio, encontra o sucessor da chave
+        // dentro dele
         if (max_incluster != -1
-            && helper->low(key) < max_incluster) {
+            && veb->low(key) < max_incluster) {
  
             offset = successor(
-                helper->clusters[helper->high(key)],
-                helper->low(key));
+                veb->clusters[veb->high(key)],
+                veb->low(key));
  
-            return helper->generate_index(helper->high(key),
-                                          offset);
+            return veb->generate_index(veb->high(key), offset);
         }
  
-        // Otherwise look for the next cluster with at least
-        // one key present
+        // se nao, procura no proximo cluster nao vazio
         else {
  
-            succ_cluster = successor(helper->summary,
-                                         helper->high(key));
- 
-            // If there is no cluster with any key present
-            // in summary then return null
-            if (succ_cluster == -1) {
-                return -1;
-            }
- 
-            // Find minimum in successor cluster which will
-            // be the successor of the key
+            succ_cluster = successor(veb->summary, veb->high(key));
+            
+            if (succ_cluster == -1) return -1; 
+            // encontra o minimo dentro desse cluster
             else {
- 
-                offset = minimum(
-                    helper->clusters[succ_cluster]);
- 
-                return helper->generate_index(succ_cluster,
-                                              offset);
+                offset = minimum(veb->clusters[succ_cluster]);
+                return veb->generate_index(succ_cluster, offset);
             }
         }
     }
 }
  
 // Function to find the predecessor of the given key
-int predecessor(Van_Emde_Boas* helper, int key)
+int predecessor(Van_Emde_Boas* veb, int key)
 {
  
     // Base case: If the key is 1 and it's predecessor
     // is present then return 0 else return null
-    if (helper->universe_size == 2) {
- 
-        if (key == 1 && helper->minimum == 0) {
+    if (veb->universe_size == 2) {
+        if (key == 1 && veb->minimum == 0)
             return 0;
-        }
         else
             return -1;
     }
  
     // If the key is greater than maximum of the tree then
     // return key as it will be the predecessor of the key
-    else if (helper->maximum != -1
-             && key > helper->maximum) {
+    else if (veb->maximum != -1
+             && key > veb->maximum) {
  
-        return helper->maximum;
+        return veb->maximum;
     }
     else {
  
@@ -295,20 +205,20 @@ int predecessor(Van_Emde_Boas* helper, int key)
         // First find minimum in the key to check whether
         // any key is present in the cluster
         int min_incluster = minimum(
-            helper->clusters[helper->high(key)]);
+            veb->clusters[veb->high(key)]);
  
         int offset{ 0 }, pred_cluster{ 0 };
  
         // If any key is present in the cluster then find
         // predecessor in the cluster
         if (min_incluster != -1
-            && helper->low(key) > min_incluster) {
+            && veb->low(key) > min_incluster) {
  
             offset = predecessor(
-                helper->clusters[helper->high(key)],
-                helper->low(key));
+                veb->clusters[veb->high(key)],
+                veb->low(key));
  
-            return helper->generate_index(helper->high(key),
+            return veb->generate_index(veb->high(key),
                                           offset);
         }
  
@@ -318,16 +228,16 @@ int predecessor(Van_Emde_Boas* helper, int key)
         else {
  
             pred_cluster = predecessor(
-                helper->summary, helper->high(key));
+                veb->summary, veb->high(key));
  
             // If no predecessor cluster then...
             if (pred_cluster == -1) {
  
                 // Special case which is due to lazy
                 // propagation
-                if (helper->minimum != -1
-                    && key > helper->minimum) {
-                    return helper->minimum;
+                if (veb->minimum != -1
+                    && key > veb->minimum) {
+                    return veb->minimum;
                 }
  
                 else
@@ -339,114 +249,73 @@ int predecessor(Van_Emde_Boas* helper, int key)
             else {
  
                 offset = maximum(
-                    helper->clusters[pred_cluster]);
+                    veb->clusters[pred_cluster]);
  
-                return helper->generate_index(pred_cluster,
+                return veb->generate_index(pred_cluster,
                                               offset);
             }
         }
     }
 }
- 
-// Function to delete a key from the tree
-// assuming that the key is present
-void remove(Van_Emde_Boas* helper, int key)
+
+int remove(Van_Emde_Boas* veb, int key, int nivel = 1)
 {
  
-    // If only one key is present, it means
-    // that it is the key we want to delete
-    // Same condition as key == max && key == min
-    if (helper->maximum == helper->minimum) {
- 
-        helper->minimum = -1;
-        helper->maximum = -1;
+    // se só há um elemento, significa que é o key
+    if (veb->maximum == veb->minimum) {
+        veb->minimum = -1;
+        veb->maximum = -1;
     }
- 
-    // Base case: If the above condition is not true
-    // i.e. the tree has more than two keys
-    // and if its size is two than a tree has exactly two
-    // keys. We simply delete it by assigning it to another
-    // present key value
-    else if (helper->universe_size == 2) {
- 
-        if (key == 0) {
-            helper->minimum = 1;
-        }
-        else {
-            helper->minimum = 0;
-        }
-        helper->maximum = helper->minimum;
+    else if (veb->universe_size == 2) {
+        if (key == 0) veb->minimum = 1;
+        else 
+            veb->minimum = 0;
+
+        veb->maximum = veb->minimum;
     }
     else {
+        // se queremos deletar o minimo, procuramos
+        // o seu sucessor dentro da arvore
+        if (key == veb->minimum) {
  
-        // As we are doing something similar to lazy
-        // propagation we will basically find next bigger
-        // key and assign it as minimum
-        if (key == helper->minimum) {
+            int first_cluster = minimum(veb->summary);
  
-            int first_cluster
-                = minimum(helper->summary);
+            key = veb->generate_index(first_cluster, minimum(veb->clusters[first_cluster]));
  
-            key = helper->generate_index(
-                first_cluster,
-                minimum(
-                    helper->clusters[first_cluster]));
- 
-            helper->minimum = key;
+            veb->minimum = key;
         }
  
-        // Now we delete the key
-        remove(helper->clusters[helper->high(key)],
-                   helper->low(key));
+        remove(veb->clusters[veb->high(key)], veb->low(key), nivel++);
+
+        // se apos a remoção, o min se tornou -1, precisamos deletar 
+        // o cluster do summary também
+        if (minimum(veb->clusters[veb->high(key)]) == -1) {
  
-        // After deleting the key, rest of the improvements
+            remove(veb->summary, veb->high(key));
  
-        // If the minimum in the cluster of the key is -1
-        // then we have to delete it from the summary to
-        // eliminate the key completely
-        if (minimum(helper->clusters[helper->high(key)])
-            == -1) {
- 
-            remove(helper->summary, helper->high(key));
- 
-            // After the above condition, if the key
-            // is maximum of the tree then...
-            if (key == helper->maximum) {
-                int max_insummary
-                    = maximum(helper->summary);
- 
-                // If the max value of the summary is null
-                // then only one key is present so
-                // assign min. to max.
-                if (max_insummary == -1) {
- 
-                    helper->maximum = helper->minimum;
-                }
+            // se a chave é o max da veb tree
+            if (key == veb->maximum) {
+                int max_insummary = maximum(veb->summary);
+                
+                // max = -1 indica que só há um elemento agora na arvore: o minimo
+                if (max_insummary == -1) 
+                    veb->maximum = veb->minimum;
+                // se nao, procura o novo maximo e atribui
                 else {
- 
-                    // Assign global maximum of the tree,
-                    // after deleting our query-key
-                    helper->maximum
-                        = helper->generate_index(
+                    veb->maximum = veb->generate_index(
                             max_insummary,
-                            maximum(
-                                helper->clusters
-                                    [max_insummary]));
+                            maximum(veb->clusters[max_insummary]));
                 }
             }
         }
- 
-        // Simply find the new maximum key and
-        // set the maximum of the tree
-        // to the new maximum
-        else if (key == helper->maximum) {
- 
-            helper->maximum = helper->generate_index(
-                helper->high(key),
-                maximum(
-                    helper->clusters[helper->high(key)]));
+        else if (key == veb->maximum) {
+            veb->maximum = veb->generate_index(
+                veb->high(key),
+                maximum(veb->clusters[veb->high(key)]));
         }
     }
+
+    return nivel;
 }
  
 

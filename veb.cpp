@@ -10,305 +10,323 @@ ui32 Seed, Current;
 
 ui32 NEXT_RAND();
 
-class Van_Emde_Boas {
- 
+class Van_Emde_Boas
+{
+
 public:
     int universe_size;
     int minimum;
     int maximum;
-    Van_Emde_Boas* summary;
-    vector<Van_Emde_Boas*> clusters;
- 
+    Van_Emde_Boas *summary;
+    vector<Van_Emde_Boas *> clusters;
+
     int high(int x)
     {
         int div = ceil(sqrt(universe_size));
         return x / div;
     }
- 
+
     int low(int x)
     {
         int mod = ceil(sqrt(universe_size));
         return x % mod;
     }
- 
+
     int generate_index(int x, int y)
     {
         int ru = ceil(sqrt(universe_size));
         return x * ru + y;
     }
- 
+
     // Constructor
     Van_Emde_Boas(int size)
     {
         universe_size = size;
-        minimum = -1;
+        minimum = universe_size;
         maximum = -1;
- 
+
         // Base case
-        if (size <= 2) {
+        if (size <= 2)
+        {
             summary = nullptr;
-            clusters = vector<Van_Emde_Boas*>(0, nullptr);
+            clusters = vector<Van_Emde_Boas *>(0, nullptr);
         }
-        else {
+        else
+        {
             int universe_root = ceil(sqrt(size));
- 
+
             summary = new Van_Emde_Boas(universe_root);
 
-            clusters = vector<Van_Emde_Boas*>(universe_root, nullptr);
- 
+            clusters = vector<Van_Emde_Boas *>(universe_root, nullptr);
+
             // cada cluster recebe uma VEB(universe_root)
-            for (int i = 0; i < universe_root; i++) 
+            for (int i = 0; i < universe_root; i++)
                 clusters[i] = new Van_Emde_Boas(universe_root);
         }
     }
 };
- 
-int minimum(Van_Emde_Boas* veb)
+
+int minimum(Van_Emde_Boas *veb)
 {
-    return (veb->minimum == -1 ? -1 : veb->minimum);
+    return (veb->minimum == veb->universe_size ? veb->universe_size : veb->minimum);
 }
- 
-int maximum(Van_Emde_Boas* veb)
+
+int maximum(Van_Emde_Boas *veb)
 {
     return (veb->maximum == -1 ? -1 : veb->maximum);
 }
- 
-int insert(Van_Emde_Boas* veb, int key, int nivel = 1)
+
+int insert(Van_Emde_Boas *veb, int key, int nivel = 1)
 {
+
+    if (veb->universe_size == 2)
+    {
+        veb->minimum = min(veb->minimum, key);
+        veb->maximum = max(veb->maximum, key);
+
+        return nivel;
+    }
+
     // se veb vazia, min = max = key
-    if (veb->minimum == -1) {
+    if (veb->minimum == veb->universe_size)
+    {
         veb->minimum = key;
         veb->maximum = key;
-    }
-    else {
-        if (key < veb->minimum) {
- 
-            // troca minimo global com a chave atual e 
-            // insere o antigo minimo global recursivamente
-            swap(veb->minimum, key);
-        }
- 
-        if (veb->universe_size > 2) {
-            // se cluster vazio, insere no cluster e no summary
-            if (minimum(veb->clusters[veb->high(key)]) == -1) {
-                insert(veb->summary, veb->high(key), ++nivel);
- 
-                // como o cluster esta vazio, seta min = max = key
-                veb->clusters[veb->high(key)]->minimum = veb->low(key);
-                veb->clusters[veb->high(key)]->maximum = veb->low(key);
-            }
-            else {
-                // Se há mais elementos na arvore, continua..
-                insert(veb->clusters[veb->high(key)], veb->low(key), ++nivel);
-            }
-        }
 
-        if (key > veb->maximum) veb->maximum = key;
+        return nivel;
     }
+    
+    if (key < veb->minimum)
+    {
+
+        // troca minimo global com a chave atual e
+        // insere o antigo minimo global recursivamente
+        swap(veb->minimum, key);
+    }
+
+    veb->maximum = max(veb->maximum, key);
+
+    int high = veb->high(key);
+    int low = veb->low(key);
+    // se cluster vazio, insere no cluster e no summary
+    if (minimum(veb->clusters[high]) == veb->universe_size)
+        insert(veb->summary, high, ++nivel);
+
+    insert(veb->clusters[high], low, ++nivel);
+
     return nivel;
 }
 
-bool contains(Van_Emde_Boas* veb, int key)
+bool contains(Van_Emde_Boas *veb, int key)
 {
- 
+
     // A key está fora do universo
     if (veb->universe_size < key)
         return false;
- 
-    if (veb->minimum == key || veb->maximum == key) 
+
+    if (veb->minimum == key || veb->maximum == key)
         return true;
-    else {
- 
+    else
+    {
+
         // se o tamanho do universo é 2 e a chave
         // não é nem o max, nem o min, significa que ela
         // não está presente na estrutura
-        if (veb->universe_size == 2) 
+        if (veb->universe_size == 2)
             return false;
-        else {
+        else
+        {
             return contains(
                 veb->clusters[veb->high(key)],
                 veb->low(key));
         }
     }
 }
- 
-int successor(Van_Emde_Boas* veb, int key)
+
+int successor(Van_Emde_Boas *veb, int key)
 {
- 
+
     // caso base
-    if (veb->universe_size == 2) {
-        if (key == 0 && veb->maximum == 1) 
+    if (veb->universe_size == 2)
+    {
+        if (key == 0 && veb->maximum == 1)
             return 1;
-        else 
+        else
             return -1;
     }
- 
+
     // se o min presente é maior que a chave,
     // então ele é o seu sucessor
-    else if (veb->minimum != -1 && key < veb->minimum) 
+    else if (veb->minimum != veb->universe_size && key < veb->minimum)
         return veb->minimum;
-    else {
+    else
+    {
         int max_incluster = maximum(veb->clusters[veb->high(key)]);
- 
-        int offset{ 0 }, succ_cluster{ 0 };
- 
+
+        int offset{0}, succ_cluster{0};
+
         // se o cluster não estiver vazio, encontra o sucessor da chave
         // dentro dele
-        if (max_incluster != -1
-            && veb->low(key) < max_incluster) {
- 
+        if (max_incluster != -1 && veb->low(key) < max_incluster)
+        {
+
             offset = successor(
                 veb->clusters[veb->high(key)],
                 veb->low(key));
- 
+
             return veb->generate_index(veb->high(key), offset);
         }
- 
+
         // se nao, procura no proximo cluster nao vazio
-        else {
- 
+        else
+        {
+
             succ_cluster = successor(veb->summary, veb->high(key));
-            
-            if (succ_cluster == -1) return -1; 
+
+            if (succ_cluster == -1)
+                return -1;
             // encontra o minimo dentro desse cluster
-            else {
+            else
+            {
                 offset = minimum(veb->clusters[succ_cluster]);
                 return veb->generate_index(succ_cluster, offset);
             }
         }
     }
 }
- 
+
 // Function to find the predecessor of the given key
-int predecessor(Van_Emde_Boas* veb, int key)
+int predecessor(Van_Emde_Boas *veb, int key)
 {
- 
+
     // Base case: If the key is 1 and it's predecessor
     // is present then return 0 else return null
-    if (veb->universe_size == 2) {
+    if (veb->universe_size == 2)
+    {
         if (key == 1 && veb->minimum == 0)
             return 0;
         else
             return -1;
     }
- 
+
     // If the key is greater than maximum of the tree then
     // return key as it will be the predecessor of the key
-    else if (veb->maximum != -1
-             && key > veb->maximum) {
- 
+    else if (veb->maximum != -1 && key > veb->maximum)
         return veb->maximum;
-    }
-    else {
- 
+    
+    else
+    {
         // Find predecessor in the cluster of the key
         // First find minimum in the key to check whether
         // any key is present in the cluster
-        int min_incluster = minimum(
-            veb->clusters[veb->high(key)]);
- 
-        int offset{ 0 }, pred_cluster{ 0 };
- 
+        int min_incluster = minimum(veb->clusters[veb->high(key)]);
+
+        int offset{0}, pred_cluster{0};
+
         // If any key is present in the cluster then find
         // predecessor in the cluster
-        if (min_incluster != -1
-            && veb->low(key) > min_incluster) {
- 
+        if (min_incluster != veb->universe_size && veb->low(key) > min_incluster)
+        {
+
             offset = predecessor(
                 veb->clusters[veb->high(key)],
                 veb->low(key));
- 
-            return veb->generate_index(veb->high(key),
-                                          offset);
+
+            return veb->generate_index(veb->high(key), offset);
         }
- 
+
         // Otherwise look for predecessor in the summary
         // which returns the index of predecessor cluster
         // with any key present
-        else {
- 
+        else
+        {
+
             pred_cluster = predecessor(
                 veb->summary, veb->high(key));
- 
+
             // If no predecessor cluster then...
-            if (pred_cluster == -1) {
- 
-                // Special case which is due to lazy
-                // propagation
-                if (veb->minimum != -1
-                    && key > veb->minimum) {
+            if (pred_cluster == -1)
+            {
+                if (veb->minimum != veb->universe_size && key > veb->minimum)
                     return veb->minimum;
-                }
- 
+                
                 else
                     return -1;
             }
- 
+
             // Otherwise find maximum in the predecessor
             // cluster
-            else {
- 
-                offset = maximum(
-                    veb->clusters[pred_cluster]);
- 
+            else
+            {
+                offset = maximum(veb->clusters[pred_cluster]);
+
                 return veb->generate_index(pred_cluster,
-                                              offset);
+                                           offset);
             }
         }
     }
 }
 
-int remove(Van_Emde_Boas* veb, int key, int nivel = 1)
+int remove(Van_Emde_Boas *veb, int key, int nivel = 1)
 {
- 
+
     // se só há um elemento, significa que é o key
-    if (veb->maximum == veb->minimum) {
-        veb->minimum = -1;
+    if (veb->maximum == veb->minimum)
+    {
+        veb->minimum = veb->universe_size;
         veb->maximum = -1;
     }
-    else if (veb->universe_size == 2) {
-        if (key == 0) veb->minimum = 1;
-        else 
+    else if (veb->universe_size == 2)
+    {
+        if (key == 0)
+            veb->minimum = 1;
+        else
             veb->minimum = 0;
 
         veb->maximum = veb->minimum;
     }
-    else {
+    else
+    {
         // se queremos deletar o minimo, procuramos
         // o seu sucessor dentro da arvore
-        if (key == veb->minimum) {
- 
+        if (key == veb->minimum)
+        {
+
             int first_cluster = minimum(veb->summary);
- 
+
             key = veb->generate_index(first_cluster, minimum(veb->clusters[first_cluster]));
- 
+
             veb->minimum = key;
         }
- 
+
         remove(veb->clusters[veb->high(key)], veb->low(key), nivel++);
 
-        // se apos a remoção, o min se tornou -1, precisamos deletar 
+        // se apos a remoção, o min se tornou universe_size, precisamos deletar
         // o cluster do summary também
-        if (minimum(veb->clusters[veb->high(key)]) == -1) {
- 
+        if (minimum(veb->clusters[veb->high(key)]) == veb->universe_size)
+        {
+
             remove(veb->summary, veb->high(key));
- 
+
             // se a chave é o max da veb tree
-            if (key == veb->maximum) {
+            if (key == veb->maximum)
+            {
                 int max_insummary = maximum(veb->summary);
-                
+
                 // max = -1 indica que só há um elemento agora na arvore: o minimo
-                if (max_insummary == -1) 
+                if (max_insummary == -1)
                     veb->maximum = veb->minimum;
                 // se nao, procura o novo maximo e atribui
-                else {
+                else
+                {
                     veb->maximum = veb->generate_index(
-                            max_insummary,
-                            maximum(veb->clusters[max_insummary]));
+                        max_insummary,
+                        maximum(veb->clusters[max_insummary]));
                 }
             }
         }
-        else if (key == veb->maximum) {
+        else if (key == veb->maximum)
+        {
             veb->maximum = veb->generate_index(
                 veb->high(key),
                 maximum(veb->clusters[veb->high(key)]));
@@ -317,7 +335,6 @@ int remove(Van_Emde_Boas* veb, int key, int nivel = 1)
 
     return nivel;
 }
- 
 
 int main()
 {
@@ -326,7 +343,7 @@ int main()
     std::cin >> Seed >> m >> burn_in >> n >> i >> f >> d >> p;
 
     ui32 u = 1 << (1 << m);
-    Van_Emde_Boas* veb = new Van_Emde_Boas(u);
+    Van_Emde_Boas *veb = new Van_Emde_Boas(u);
 
     Current = Seed;
 

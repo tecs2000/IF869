@@ -2,13 +2,13 @@
 
 using namespace std;
 
-#define ui32 uint32_t
+#define ui unsigned int
 #define A 1664525
 #define C 1013904223
 
-ui32 Seed, Current;
+ui Seed, Current;
 
-ui32 NEXT_RAND();
+ui NEXT_RAND();
 
 class Van_Emde_Boas
 {
@@ -17,25 +17,23 @@ public:
     int universe_size;
     int minimum;
     int maximum;
+    int sqrt;
     Van_Emde_Boas *summary;
     vector<Van_Emde_Boas *> clusters;
 
     int high(int x)
     {
-        int div = ceil(sqrt(universe_size));
-        return x / div;
+        return x / this->sqrt;
     }
 
     int low(int x)
     {
-        int mod = ceil(sqrt(universe_size));
-        return x % mod;
+        return x % this->sqrt;
     }
 
     int generate_index(int x, int y)
     {
-        int ru = ceil(sqrt(universe_size));
-        return x * ru + y;
+        return (x * this->sqrt) + y;
     }
 
     // Constructor
@@ -44,24 +42,18 @@ public:
         universe_size = size;
         minimum = universe_size;
         maximum = -1;
+        sqrt = ceil(sqrt(universe_size));
 
         // Base case
-        if (size <= 2)
+        if (size > 2)
         {
-            summary = nullptr;
-            clusters = vector<Van_Emde_Boas *>(0, nullptr);
-        }
-        else
-        {
-            int universe_root = ceil(sqrt(size));
+            summary = new Van_Emde_Boas(sqrt);
 
-            summary = new Van_Emde_Boas(universe_root);
-
-            clusters = vector<Van_Emde_Boas *>(universe_root, nullptr);
+            clusters = vector<Van_Emde_Boas *>(sqrt, nullptr);
 
             // cada cluster recebe uma VEB(universe_root)
-            for (int i = 0; i < universe_root; i++)
-                clusters[i] = new Van_Emde_Boas(universe_root);
+            for (int i = 0; i < sqrt; i++)
+                clusters[i] = new Van_Emde_Boas(sqrt);
         }
     }
 };
@@ -103,6 +95,7 @@ int insert(Van_Emde_Boas *veb, int key, int nivel = 1)
 
     int high = veb->high(key);
     int low = veb->low(key);
+
     // se cluster vazio, insere no cluster e no summary
     if (veb->clusters[high]->minimum == veb->universe_size)
         insert(veb->summary, high);
@@ -121,7 +114,6 @@ bool contains(Van_Emde_Boas *veb, int key)
         return true;
     else
     {
-
         // se o tamanho do universo é 2 e a chave
         // não é nem o max, nem o min, significa que ela
         // não está presente na estrutura
@@ -152,6 +144,7 @@ int successor(Van_Emde_Boas *veb, int key)
     // então ele é o seu sucessor
     else if (veb->minimum != veb->universe_size && key < veb->minimum)
         return veb->minimum;
+
     else
     {
         int max_incluster = maximum(veb->clusters[veb->high(key)]);
@@ -188,12 +181,10 @@ int successor(Van_Emde_Boas *veb, int key)
     }
 }
 
-// Function to find the predecessor of the given key
 int predecessor(Van_Emde_Boas *veb, int key)
 {
-
-    // Base case: If the key is 1 and it's predecessor
-    // is present then return 0 else return null
+    // caso base: se chave 1, e chave 0 esta presente
+    // retorna 0, se nao, retorna -1
     if (veb->universe_size == 2)
     {
         if (key == 1 && veb->minimum == 0)
@@ -202,22 +193,20 @@ int predecessor(Van_Emde_Boas *veb, int key)
             return -1;
     }
 
-    // If the key is greater than maximum of the tree then
-    // return key as it will be the predecessor of the key
+    // se a chave é maior que o maximo presente, entao o
+    // maximo é o seu predecessor
     else if (veb->maximum != -1 && key > veb->maximum)
         return veb->maximum;
     
     else
     {
-        // Find predecessor in the cluster of the key
-        // First find minimum in the key to check whether
-        // any key is present in the cluster
+        // checa no cluster da chave se ha algum elemento
         int min_incluster = minimum(veb->clusters[veb->high(key)]);
 
         int offset{0}, pred_cluster{0};
 
-        // If any key is present in the cluster then find
-        // predecessor in the cluster
+        // se ha alguma chave no cluster e key é maior que o minimo presente
+        // significa que o seu predecessor está lá
         if (min_incluster != veb->universe_size && veb->low(key) > min_incluster)
         {
 
@@ -228,16 +217,14 @@ int predecessor(Van_Emde_Boas *veb, int key)
             return veb->generate_index(veb->high(key), offset);
         }
 
-        // Otherwise look for predecessor in the summary
-        // which returns the index of predecessor cluster
-        // with any key present
+        // se nao, procura pelo predecessor do seu cluster no summary
+        // que vai retornar o cluster predecessor que possua uma chave presente 
         else
         {
 
-            pred_cluster = predecessor(
-                veb->summary, veb->high(key));
+            pred_cluster = predecessor(veb->summary, veb->high(key));
 
-            // If no predecessor cluster then...
+            // se nao ha um cluster predecessor...
             if (pred_cluster == -1)
             {
                 if (veb->minimum != veb->universe_size && key > veb->minimum)
@@ -247,14 +234,11 @@ int predecessor(Van_Emde_Boas *veb, int key)
                     return -1;
             }
 
-            // Otherwise find maximum in the predecessor
-            // cluster
+            // se ha, acha o predecessor dentro do cluster predecessor
             else
             {
                 offset = maximum(veb->clusters[pred_cluster]);
-
-                return veb->generate_index(pred_cluster,
-                                           offset);
+                return veb->generate_index(pred_cluster, offset);
             }
         }
     }
@@ -335,7 +319,7 @@ int main()
 
     std::cin >> Seed >> m >> burn_in >> n >> i >> f >> d >> p;
 
-    ui32 u = 1 << (1 << m);
+    ui u = 1 << (1 << m);
     Van_Emde_Boas *veb = new Van_Emde_Boas(u);
 
     Current = Seed;
@@ -359,7 +343,7 @@ int main()
         // ins
         if (x < i)
         {
-            ui32 item = (NEXT_RAND() % u);
+            ui item = (NEXT_RAND() % u);
             int nivel = 0;
 
             if (!contains(veb, item))
@@ -401,7 +385,7 @@ int main()
     return 0;
 }
 
-ui32 NEXT_RAND()
+ui NEXT_RAND()
 {
     Current = (A * Current) + C;
     return Current;

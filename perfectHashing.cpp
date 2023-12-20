@@ -168,13 +168,13 @@ public:
           rng(ptr_rng),
           table_size(size)
     {     
-        this->populate();
-        this->second_PHT();
+        this->populate_first_level();
+        this->populate_second_level();
     }
 
-    void populate()
+    void populate_first_level()
     {   
-        /* in case of needing rehashing, deletes old table and initializes new one */
+        /* in case of need rehashing, deletes the old table and initializes a new one */
         delete &this->table;
         this->table = vector<Perfect_table>(table_size);
 
@@ -199,18 +199,18 @@ public:
             }
         }
 
-        /* checks if the universal hash function distribuited well the elements
-        if she didnt, populates again with a new one */
+        /* checks if the universal hash function distribuited well the elements.
+        if it didnt, tries again with a new hash function */
         ui sum = 0;
         for (int i = 0; i < this->table_size; i++)
             sum += pow(this->table[i].len, 2);
         
         if (sum > 4 * this->table_nr_eltos)
-            populate();
+            populate_first_level();
     }
 
     // TODO - implement perfect hashing inside each table's index
-    void second_PHT(){
+    void populate_second_level(){
 
     }
 };

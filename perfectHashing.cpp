@@ -50,33 +50,33 @@ private:
     /* hash function params */
     ui a, b;
 
-    ui table_nr_eltos;
-
     RNG *rng;
 
 public:
+    ui len;
     vector<Table> table;
     ui table_size;
 
     HT(ui size, RNG *ptr_rng)
         : rng(ptr_rng), table_size(size), table(size)
     {
+        this->len = 0;
 
         /* initializes the hash function a and b params  */
         this->a = 1u + ptr_rng->next() % (P - 1);
         this->b = ptr_rng->next() % P;
     }
 
-    void insert(ui k)
+    pair<int32_t, int32_t> insert(ui k)
     {
-        /* gets its position in the table */
-        ui pos = ((this->a * k) + this->b) % P % this->table_size;
 
-        /* checks if the key is in the table */
-        if (!this->query(pos, k))
+        ui pos = ((this->a * k) + this->b) % P % this->table_size;
+        int32_t pos_inside = this->query(pos, k);
+
+        if (pos_inside == -1)
         {
             /* checks if the table needs rehashing */
-            if (2 * this->table_nr_eltos > this->table_size)
+            if (2 * this->len > this->table_size)
             {
                 this->rehash();
 
@@ -85,21 +85,25 @@ public:
                 pos = ((this->a * k) + this->b) % P % this->table_size;
             }
 
-            ++table_nr_eltos;
+            ++this->len;
             ++this->table[pos].len;
 
             this->table[pos].list.push_back(k);
+
+            return {pos, (table[pos].len - 1)};
         };
+
+        return {pos, pos_inside};
     }
 
-    int query(ui pos, ui k)
+    int32_t query(ui pos, ui k)
     {
-        for (auto elto : this->table[pos].list)
+        for (int i = 0; i < this->table[pos].len; i++)
         {
-            if (elto == k)
-                return 1;
+            if (this->table[pos].list[i] == k)
+                return i;
         }
-        return 0;
+        return -1;
     };
 
     void rehash()
@@ -125,6 +129,7 @@ public:
                     ui new_pos = ((new_a * item) + new_b) % P % new_size;
 
                     /* inserts the elto in the new table */
+                    ++new_table[new_pos].len;
                     new_table[new_pos].list.push_back(item);
                 }
             }
@@ -134,7 +139,6 @@ public:
         this->b = new_b;
         this->table_size = new_size;
 
-        delete &this->table;
         this->table = new_table;
     }
 };
@@ -151,9 +155,9 @@ struct Perfect_table
 class Perfect_HT
 {
 private:
-    ui table_nr_eltos;
     ui table_size;
 
+    /* function params */
     ui a, b;
 
     HT *normal_ht;
@@ -163,59 +167,120 @@ private:
     RNG *rng;
 
 public:
-    Perfect_HT(HT *ptr_normal_table, ui size, RNG *ptr_rng)
-        : normal_ht(ptr_normal_table),
-          rng(ptr_rng),
-          table_size(size)
-    {     
+    Perfect_HT(HT *ptr_normal_table, RNG *ptr_rng)
+        : normal_ht(ptr_normal_table), rng(ptr_rng)
+    {
+        this->table_size = this->normal_ht->len;
+
         this->populate_first_level();
         this->populate_second_level();
     }
 
     void populate_first_level()
-    {   
-        /* in case of need rehashing, deletes the old table and initializes a new one */
-        delete &this->table;
-        this->table = vector<Perfect_table>(table_size);
+    {
+        ui sum;
 
-        /* initializes the Ht function a and b params  */
-        this->a = 1u + this->rng->next() % (P - 1);
-        this->b = this->rng->next() % P;
-
-        this->table_nr_eltos = 0;
-
-        /* copies all keys from the normal table to the perfect table */
-        for (ui i = 0; i < this->normal_ht->table_size; ++i)
+        do
         {
-            for (ui k = 0; k < this->normal_ht->table[i].len; ++k)
+            /* initializes the Ht function a and b params  */
+            this->a = 1u + this->rng->next() % (P - 1);
+            this->b = this->rng->next() % P;
+
+            /* in case of need rehashing, deletes the old table and initializes a new one */
+            this->table = vector<Perfect_table>(table_size);
+
+            for (ui i = 0; i < this->normal_ht->table_size; ++i)
             {
+                for (ui k = 0; k < this->normal_ht->table[i].len; k++)
+                {
 
-                ui item = this->normal_ht->table[i].list[k];
-                ui pos = ((this->a * item) + this->b) % P % this->table_size; /* gets its position in the perfect table */
+                    ui item = this->normal_ht->table[i].list[k];
+                    ui pos = ((this->a * item) + this->b) % P % this->table_size;
 
-                ++this->table_nr_eltos;
-                ++this->table[pos].len;
-                this->table[pos].list.push_back(item);
+                    this->table[pos].list.push_back(item);
+                    this->table[pos].len++;
+                }
             }
-        }
 
-        /* checks if the universal hash function distribuited well the elements.
-        if it didnt, tries again with a new hash function */
-        ui sum = 0;
-        for (int i = 0; i < this->table_size; i++)
-            sum += pow(this->table[i].len, 2);
-        
-        if (sum > 4 * this->table_nr_eltos)
-            populate_first_level();
+            /* checks if the universal hash function distribuited well the elements.
+            if it didnt, tries again with a new hash function */
+            sum = 0;
+            for (int i = 0; i < this->table_size; i++)
+                sum += pow(this->table[i].len, 2);
+
+        }while(sum > 4 * this->table_size);
     }
 
-    // TODO - implement perfect hashing inside each table's index
-    void populate_second_level(){
+    pair<int32_t, int32_t> query(ui k)
+    {
+        /* gets its position in the table */
+        ui pos = ((this->a * k) + this->b) % P % this->table_size;
+        ui pos_inside = -1;
 
+        if(this->table[pos].len != 0){
+            ui size_list = pow(this->table[pos].len, 2) + 1;
+            pos_inside = ((this->table[pos].a * k) + this->table[pos].b) % P % size_list;
+        }
+
+        if (pos_inside == -1)
+            return {-1, -1};
+
+        else {
+            if (this->table[pos].list[pos_inside] == k)
+                return {pos, pos_inside};
+
+            else
+                return {-1, -1};
+        }
+    };
+
+    void populate_second_level()
+    {
+        for (int i = 0; i < this->table_size; i++)
+        {
+            if (this->table[i].len != 0)
+            {
+
+                ui list_len = pow(this->table[i].len, 2) + 1;
+
+                int collision = 1;
+
+                while (collision)
+                {
+                    vector<ui> new_list = vector<ui>(list_len);
+
+                    /* initializes the Ht function that will be applied
+                    on this list of keys mapped to the same index  */
+                    this->table[i].a = 1u + this->rng->next() % (P - 1);
+                    this->table[i].b = this->rng->next() % P;
+
+                    for (int k = 0; k < this->table[i].len; k++)
+                    {
+                        ui item = this->table[i].list[k];
+
+                        ui pos = ((this->table[i].a * item) + this->table[i].b) % P % list_len;
+
+                        if (new_list[pos] != 0)
+                        {
+                            collision = true;
+                            break;
+                        }
+                        else
+                        {
+                            collision = false;
+                            new_list[pos] = item;
+                        }
+                    }
+                    /* checks if the perfect params finally were found */
+                    if (collision == false)
+                        this->table[i].list = new_list;
+                }
+            }
+        }
     }
 };
 
-void main()
+int main()
 {
 
     ui seed, keys_universe, hash_size, nr_insertions, nr_queries, freq_ins, freq_qry;
@@ -229,6 +294,24 @@ void main()
     {
         /* generates a value to insert in the normal_table */
         ui k = rng->next() % keys_universe;
-        normal_table->insert(k);
+        pair<int32_t, int32_t> output = normal_table->insert(k);
+
+        if ((i % freq_ins) == 0)
+            cout << "I " << k << " " << output.first << " " << output.second << endl;
     }
+
+    Perfect_HT *perfect_table = new Perfect_HT(normal_table, rng);
+    for (int i = 0; i < nr_queries; i++)
+    {
+        /* generates a value to query in the normal_table */
+        ui k = rng->next() % keys_universe;
+
+        if ((i % freq_qry) == 0)
+        {
+            pair<int32_t, int32_t> output = perfect_table->query(k);
+            cout << "Q " << k << " " << output.first << " " << output.second << endl;
+        }
+    }
+
+    return 0;
 }

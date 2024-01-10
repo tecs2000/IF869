@@ -189,7 +189,7 @@ public:
             /* in case of need rehashing, deletes the old table and initializes a new one */
             this->table = vector<Perfect_table>(table_size);
 
-            for (ui i = 0; i < this->normal_ht->table_size; ++i)
+            for (ui i = 0; i < this->table_size; ++i)
             {
                 for (ui k = 0; k < this->normal_ht->table[i].len; k++)
                 {

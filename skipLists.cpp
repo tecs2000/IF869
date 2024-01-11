@@ -62,27 +62,32 @@ private:
 public:
     SkipList(){
         this->level = 1;
-        this->head  = new Node(0, this->level);
+        this->head  = new Node(-1, this->level);
     }
 
-    vector<Node*> precursors(ui data){
+    pair<vector<Node*>, int> precursors(ui data){
         Node* current = this->head;
         vector<Node*> update(this->level, nullptr);
 
+        int count = 1;
+        int visited = 1;
+
         for (int i = this->level - 1; i >= 0; i--) 
         {
-            while (current->next[i] and current->next[i]->data < data) 
+            while (current->next[i] && current->next[i]->data < data) {
                 current = current->next[i];
-            
+                visited++;                
+            }
+
             // save the precursor of the new node at each level
             update[i] = current;
         }
 
-        return update;
+        return {update, visited};
     }
 
-    int insert(ui data){
-        vector<Node*> update = this->precursors(data);
+    int insert(int data){
+        vector<Node*> update = this->precursors(data).first;
 
         if (update[0]->next[0] == nullptr || update[0]->next[0]->data != data){
             int nodeLevel = 1;
@@ -93,11 +98,12 @@ public:
             
             // resize the level of the sl
             if (this->level < nodeLevel) {
-                head->next.resize(nodeLevel + 1, nullptr);
+                this->head->next.resize(nodeLevel, nullptr);
+                update.resize(nodeLevel, this->head);
                 this->level = nodeLevel;
             }
 
-            Node* newNode = new Node(data, this->level);
+            Node* newNode = new Node(data, nodeLevel);
 
             for (int i = 0; i < nodeLevel; i++) 
             {
@@ -113,32 +119,34 @@ public:
     };
 
     pair<int, int> find(ui data){
-        Node* current = head;
-        int visited = 1;
-        int level = -1;
+        pair<vector<Node*>, int> search_result = this->precursors(data);
 
-        for (int i = this->level - 1; i >= 0; i--) {
-            /* keep on moving forward if the value of the next node 
-             is less than the searching node otherwise move downward (handled by outer for loop) */
-            while (current->next[i] && current->next[i]->data < data){
-                current = current->next[i]; // moving forward
-                visited++;
-            }
-            /* if find the node, save its level and stop the search */
-            if(current->next[i] && current->next[i]->data == data){
-                level = i;
-                break;    
-            }
-        }
+        vector<Node*> update = search_result.first;
+        int visited = search_result.second;
 
-        if (level != -1)
-            return {visited, level};
+        if(update[0]->next[0] && update[0]->next[0]->data == data)
+            return {visited, update[0]->next[0]->next.size()};
         
         else 
             return {visited, 0};
     };
     
-    void del(ui key);
+    int del(ui data){
+        vector<Node*> precursors = this->precursors(data).first;
+
+        if(precursors[0]->next[0] == nullptr || precursors[0]->next[0]->data != data)
+            return 0;
+        
+        Node* temp = precursors[0]->next[0];
+
+        for(int i = 0; i < temp->next.size(); i++)
+            precursors[i]->next[i] = temp->next[i];
+    
+        while (this->level > 1 && this->head->next[this->level - 1] == nullptr)
+            this->level = this->level - 1;
+        
+        return 1;
+    };
 };
 
 int main()
@@ -151,11 +159,10 @@ int main()
 
     // burn-in
     for (ui i = 0; i < b; i++)
-        sl->insert(rng->next());
+        sl->insert(rng->next() % u);
 
     Options operation;
     bool print = 0;
-    int printcount = 0;
     int result = 0;
 
     for (ui k = 0; k < n; k++)
@@ -168,11 +175,9 @@ int main()
 
         x = rng->next() % u;
 
-        if((k % p) == 0) {
+        if((k % p) == 0) 
             print = 1;
-            printcount++;
-        }
-
+        
         switch (operation)
         {
             case FND:
@@ -191,12 +196,11 @@ int main()
                 break;
 
             case DEL:
-                //sl->del(x);
+                result = sl->del(x);
 
-                if(print) {
-                    printf("TODO");
-                }
-
+                if(print) 
+                    printf("D %d\n", result);
+                
                 break;
         }
 

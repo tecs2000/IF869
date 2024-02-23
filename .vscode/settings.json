@@ -6,6 +6,10 @@
         "ranges": "cpp",
         "span": "cpp",
         "sstream": "c",
-        "regex": "c"
+        "regex": "c",
+        "cmath": "cpp",
+        "tuple": "cpp",
+        "variant": "cpp",
+        "functional": "cpp"
     }
 }

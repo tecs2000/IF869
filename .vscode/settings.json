@@ -10,6 +10,7 @@
         "cmath": "cpp",
         "tuple": "cpp",
         "variant": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "chrono": "c"
     }
 }

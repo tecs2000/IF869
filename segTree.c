@@ -1,9 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 
 #define ui unsigned int
+
 #define odd(a) ((a % 2) == 1)
+
+int min(int a, int b) { return ((a) < (b)) ? (a) : (b); }
+int max(int a, int b) { return ((a) > (b)) ? (a) : (b); }
+int sum(int a, int b) { return (a + b); }
 
 struct RNG
 {
@@ -40,119 +44,71 @@ struct RNG *rng;
 struct SegTree
 {
     int *tree;
-    int size;
-    char *func;
+    int n;
+    int eNeutro;
+    int (*func)(int, int); // Function pointer
 };
 
-void SegTree_init(struct SegTree *st, int size, char *func)
+void SegTree_init(struct SegTree *st, int n, char *func)
 {
-    st->size = size;
-    st->tree = (int *)malloc(2 * size * sizeof(int));
-    st->func = func;
+    st->n = n;
+    st->tree = (int *)malloc(2 * n * sizeof(int));
+    st->eNeutro = 0;
+
+    if (func[1] == 'I')
+    {
+        st->func = min;
+        st->eNeutro = __INT_MAX__;
+    }
+
+    else if (func[1] == 'A')
+    {
+        st->func = max;
+        st->eNeutro = 0;
+    }
+
+    else
+        st->func = sum;
 }
 
 void SegTree_build(struct SegTree *st)
 {
-    int size = st->size;
-    char *func = st->func;
+    for (int i = 0; i < st->n; i++)
+        st->tree[i + st->n] = (int)(RNG_next(rng) % (4 * st->n));
 
-    for (int i = 0; i < size; i++)
-        st->tree[i + size] = (int)(RNG_next(rng) % (4 * size));
-
-    for (int i = size - 1; i > 0; i--)
-    {
-        if (strcmp(func, "MIN"))
-            st->tree[i] = __min(st->tree[(2 * i)], st->tree[(2 * i) + 1]);
-
-        else if (strcmp(func, "MAX"))
-            st->tree[i] = __max(st->tree[(2 * i)], st->tree[(2 * i) + 1]);
-
-        else
-            st->tree[i] = st->tree[(2 * i)] + st->tree[(2 * i) + 1];
-    }
+    for (int i = st->n - 1; i > 0; i--)
+        st->tree[i] = st->func(st->tree[(2 * i)], st->tree[(2 * i) + 1]);
 }
 
 void SegTree_update(struct SegTree *st, int i)
 {
-    int size = st->size;
-    char *func = st->func;
+    i += st->n;
 
-    int newValue = (int)(RNG_next(rng) % (4 * size));
-
-    i = i + size;
+    int newValue = (int)(RNG_next(rng) % (4 * st->n));
 
     st->tree[i] = newValue;
 
-    i = i / 2;
-
-    while (i > 0)
-    {
-        if (strcmp(func, "MIN"))
-            st->tree[i] = __min(st->tree[(2 * i)], st->tree[(2 * i) + 1]);
-
-        else if (strcmp(func, "MAX"))
-            st->tree[i] = __max(st->tree[(2 * i)], st->tree[(2 * i) + 1]);
-
-        else
-            st->tree[i] = st->tree[(2 * i)] + st->tree[(2 * i) + 1];
-
-        i = i / 2;
-    }
+    while ((i = (i >> 1)) > 0)
+        st->tree[i] = st->func(st->tree[(2 * i)], st->tree[(2 * i) + 1]);
 }
 
 int SegTree_rangeQuery(struct SegTree *st, int l, int r)
 {
-    int size = st->size;
-    char *func = st->func;
+    l += st->n;
+    r += st->n;
 
-    l = size + l;
-    r = size + r;
-
-    int eNeutro;
-    int ans;
-
-    if (strcmp(func, "MIN"))
-        eNeutro = size * 5; // o universo dos valores da arvore é (size * 4), logo size * 5 é muito maior
-
-    else if (strcmp(func, "MAX"))
-        eNeutro = -1;
-
-    else
-        eNeutro = 0;
-
-    ans = eNeutro;
+    int ans = st->eNeutro;
 
     while (l < r)
     {
-        if (odd(l)) // l é filho à direita
-        {
-            if (strcmp(func, "MIN"))
-                ans = __min(ans, st->tree[l]);
+        if (odd(l))                             // l é filho à direita
+            ans = st->func(ans, st->tree[l++]); // avalia e caminha para a direita
 
-            else if (strcmp(func, "MAX"))
-                ans = __max(ans, st->tree[l]);
+        if (odd(r))                             // r é filho à direita
+            ans = st->func(ans, st->tree[--r]); // r = r - 1; // sobe um nível
 
-            else
-                ans = ans + st->tree[l];
-
-            l = l + 1;
-        }
-        if (!odd(r)) // r é filho à esquerda
-        {
-            r = r - 1; // sobe um nível
-
-            if (strcmp(func, "MIN"))
-                ans = __min(ans, st->tree[r]);
-
-            else if (strcmp(func, "MAX"))
-                ans = __max(ans, st->tree[r]);
-
-            else
-                ans = ans + st->tree[r];
-        }
-
-        l = l / 2;
-        r = r / 2;
+        l >>= 1;
+        r >>= 1;
     }
 
     return ans;
@@ -160,31 +116,30 @@ int SegTree_rangeQuery(struct SegTree *st, int l, int r)
 
 int main()
 {
-    unsigned int s, n, w, q, u, p;
-    char f[3];
-
-    int caseCount = 0;
+    ui s, n, w, q, u, p;
+    char f[4];
+    int caseNumber = 0;
 
     struct SegTree *st;
 
-    while (scanf("%u %u %s %u %u %u %u %u", &s, &n, &f, &w, &q, &u, &p) == 1)
+    st = (struct SegTree *)malloc(sizeof(struct SegTree));
+    rng = (struct RNG *)malloc(sizeof(struct RNG));
+
+    while (scanf("%u %u %s %u %u %u %u", &s, &n, f, &w, &q, &u, &p) != EOF)
     {
-        rng = (struct RNG *)malloc(sizeof(struct RNG));
         RNG_init(rng, s);
 
-        st = (struct SegTree *)malloc(sizeof(struct SegTree));
         SegTree_init(st, n, f);
         SegTree_build(st);
 
-        printf("casp %d\n", caseCount);
-        int result;
+        printf("caso %d\n", caseNumber++);
 
         for (int i = 0; i < w; i++)
         {
-            int x = (int)(RNG_next(rng));
+            int x = (int)(RNG_next(rng) % (q + u));
             char op;
 
-            if (x % (q + u))
+            if (x < q)
                 op = 'Q'; // Query
             else
                 op = 'U'; // Update
@@ -193,24 +148,21 @@ int main()
             {
                 int index = (int)(RNG_next(rng) % n);
                 SegTree_update(st, index);
-                result = result = SegTree_rangeQuery(st, index, n);
+                if ((i % p) == 0) printf("%d\n", SegTree_rangeQuery(st, index, n));
             }
             else
             {
                 int l = (int)(RNG_next(rng) % n);
                 int r = l + 1 + (int)(RNG_next(rng) % (n - l));
-                result = SegTree_rangeQuery(st, l, r);
+                if ((i % p) == 0) printf("%d\n", SegTree_rangeQuery(st, l, r));
             }
-
-            if ((i % p) == 0)
-                printf("%d\n", result);
         }
 
         printf("\n");
-
-        free(st);
-        free(rng);
-
-        caseCount++;
     }
+
+    free(rng);
+    free(st);
+    
+    return 0;
 }
